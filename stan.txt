@@ -1,0 +1,59 @@
+# missing data in outcome y are coded as -999
+
+m_code_sm_hete <- '
+ data {
+  int nexp;
+  int npep;
+  int nch;
+  int K;
+
+  vector[nch] y[npep,nexp];
+  row_vector[K] x[nexp,nch];
+  vector[nexp] sum_x_p;
+  
+  int N_miss;
+  int exp_miss[N_miss];
+  int pep_miss[N_miss];
+ }
+
+ transformed data {
+  vector[npep] zeros;
+  zeros <- rep_vector(0.0, npep);
+ }
+
+ parameters {
+  vector[K] beta;
+  real sigma0;
+  real sigma1;
+  real phi;
+  real phi1;
+  real phi2;
+  cov_matrix[npep] sigma;
+  vector[npep] b[nexp];
+  row_vector[nch] y_miss[N_miss];
+ }
+
+ model {
+  b ~ multi_normal(zeros,sigma);
+
+  for(i in 1:nexp) {
+   for(k in 1:npep) {
+    if(y[k,i][1]!=-999) {
+	 y[k,i][1] ~ normal(b[i][k] + x[i,1]*beta, exp(sigma0));
+     for(j in 2:nch) {
+      if(y[k,i][j]!=-999) y[k,i][j] ~ normal(b[i][k] + x[i,j]*beta, exp(sigma1));
+     }
+     0 ~ bernoulli(Phi(phi + phi1*sum(y[k,i]) + phi2*sum_x_p[i]));
+    }
+   }
+  }
+  
+  for(i in 1:N_miss) {
+   y_miss[i][1] ~ normal(b[exp_miss[i]][pep_miss[i]] + x[exp_miss[i],1]*beta, exp(sigma0));
+     for(j in 2:nch) {
+      y_miss[i][j] ~ normal(b[exp_miss[i]][pep_miss[i]] + x[exp_miss[i],j]*beta, exp(sigma1));
+     }
+   1 ~ bernoulli(Phi(phi + phi1*sum(y_miss[i]) + phi2*sum_x_p[exp_miss[i]]));
+ }
+ }
+'
